@@ -1,4 +1,4 @@
-# Direct Line API Integration
+# HUGGING FACE SMOLAGENT INTEGRATION WITH AZURE CO-PILOT AGENT DIRECT LINE CHANNEL
 
 This project provides a secure and efficient integration with Microsoft's Direct Line API, featuring a robust client implementation and agent-based interaction capabilities.
 
