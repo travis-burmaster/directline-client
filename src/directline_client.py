@@ -108,7 +108,7 @@ class DirectLineClient:
             print(f"Error sending user token: {e}")
             return False
 
-    def get_responses(self, conversation_id: str, token: str) -> Optional[str]:
+    def get_response(self, conversation_id: str, token: str) -> Optional[str]:
         """Get responses from the conversation"""
         try:
             response = requests.get(
@@ -135,30 +135,92 @@ class DirectLineClient:
                     return markdown_content
         return None
 
+DL_CONFIG= DirectLineConfig()
+
 @tool
 def query_directline(conversation_id: str, message: str, token: str) -> str:
-    """Enhanced Direct Line query tool"""
-    # Initialize the client with environment variables
+    """
+    Sends a message to a Co-pliot agent via Direct Line API to retrieve company information about Northramp
+
+    Args:
+        conversation_id: The ID of the conversation with the bot.
+        message: The message to send to the bot.
+        token: The secret key for Direct Line API authentication.
+
+    Returns:
+        The response from the bot as a string.
+    """
+    import requests
+
+    # Send message to bot
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "type": "message",
+        "from": {"id": "user123"},
+        "text": message,
+        "locale": "en-US",
+        "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.oauth",
+                    "content": {
+                        "text": "To continue, please sign in.",
+                        "connectionName": "my-oauth-connection",
+                        "tokenExchangeResource": {
+                            "uri": "https://token.botframework.com/api/oauth/signin?signin=user123"
+                        }
+                    }
+                }
+        ]
+    }
+    url = f"{DL_CONFIG.endpoint}/conversations/{conversation_id}/activities"
+    response = requests.post(url, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        return f"Error: {response.status_code} - {response.text}"
+    
+     # User's authentication token (e.g., from Azure AD after login)
+    user_token = os.getenv('USER_TOKEN')
+
+    # API endpoint to send the token to the bot
+    send_token_url = f"https://directline.botframework.com/v3/directline/conversations/{conversation_id}/activities"
+
+    # Construct the message with the token
+    message_data = {
+        "type": "event",
+        "name": "tokens/response",
+        "value": {"token": user_token},
+        "from": {"id": "user123"}
+    }
+
+    # Send the token to the bot
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(send_token_url, headers=headers, json=message_data)
+
+    if response.status_code == 200:
+        print("Token sent successfully!")
+    else:
+        print("Error sending token:", response.status_code, response.text)
+
+    # Wait for the bot's response
+    print("sleeping")
+    time.sleep(10)
+    
+      # Initialize the client with environment variables
     client = DirectLineClient(
         secret=os.getenv('DIRECT_LINE_SECRET'),
         bot_id=os.getenv('BotIdentifier')
     )
-    
-    # Send the message
-    if not client.send_message(conversation_id, message, token):
-        return "Error: Failed to send message"
 
-    # Send user token if available
-    user_token = os.getenv('USER_TOKEN')
-    if user_token and not client.send_user_token(conversation_id, user_token, token):
-        return "Error: Failed to send user token"
-
-    # Wait for processing
-    time.sleep(10)
-
-    # Get response
-    response = client.get_responses(conversation_id, token)
-    return response or "No response received"
+    # Retrieve bot's response
+    response = client.get_response(conversation_id, token)
+    return response
 
 def main():
     """Main execution function"""
@@ -195,12 +257,13 @@ def main():
         max_steps=2
     )
 
+    question = "what do you know about northramp agents?"
     # Run agent
     response = agent.run(
-        "what new opportunities on sam.gov would be best for Northramp to pursue?",
+        question,
         additional_args=dict(
             conversation_id=conversation_id,
-            message="what are new opportunities for Northramp to pursue?",
+            message=question,
             token=token
         )
     )
