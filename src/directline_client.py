@@ -70,7 +70,7 @@ class DirectLineClient:
         """Send a message to the conversation"""
         payload = {
             "type": "message",
-            "from": {"id": "user123"},  # Consider making this configurable
+            "from": {"id": "user123"},
             "text": message,
             "locale": "en-US"
         }
@@ -154,7 +154,7 @@ def query_directline(conversation_id: str, message: str, token: str) -> str:
         return "Error: Failed to send user token"
 
     # Wait for processing
-    time.sleep(10)  # Consider making this configurable or implementing a better waiting mechanism
+    time.sleep(10)
 
     # Get response
     response = client.get_responses(conversation_id, token)
